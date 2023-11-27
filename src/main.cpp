@@ -485,20 +485,18 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 	const auto& hitNormal = intersectionInfo.getHitNormal();
 	const auto& hitMaterial = intersectionInfo.getHitMaterial();
 
-	Vec3f reflectionDirection = reflect(rayDirection, hitNormal);
-	Vec3f reflectionOrigin = reflectionDirection * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
-	Vec3f reflectionColor = castRay(reflectionOrigin, reflectionDirection, shapes, lights, depth + 1);
+	const auto reflectionDirection = reflect(rayDirection, hitNormal);
+	const auto reflectionOrigin = reflectionDirection * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
+	const auto reflectionColor = castRay(reflectionOrigin, reflectionDirection, shapes, lights, depth + 1);
 
-	Vec3f refractionDireciton = refract(rayDirection, hitNormal, hitMaterial.getRefractiveIndex()).normalize();
-	Vec3f refractionOrigin = refractionDireciton * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
-	Vec3f refractionColor = castRay(refractionOrigin, refractionDireciton, shapes, lights, depth + 1);
+	const auto refractionDireciton = refract(rayDirection, hitNormal, intersectionInfo.getHitMaterial().getRefractiveIndex()).normalize();
+	const auto refractionOrigin = refractionDireciton * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
+	const auto refractionColor = castRay(refractionOrigin, refractionDireciton, shapes, lights, depth + 1);
 
 	float diffuseLightIntensity = 0;
 	float specularLightIntensity = 0;
-	for (size_t lightNumber = 0; lightNumber < lights.size(); ++lightNumber)
+	for (const auto light : lights)
 	{
-
-		const auto& light = lights[lightNumber];
 		Vec3f lightDirection = (light->getPosition() - hitLocation).normalize();
 		float ligthDistance = (light->getPosition() - hitLocation).norm();
 
@@ -527,8 +525,7 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 
 	return hitMaterial.getDiffuseColor() * diffuseLightIntensity * albedo[0] +
 		   Vec3f(1.f, 1.f, 1.f) * specularLightIntensity * albedo[1] +
-		   reflectionColor * albedo[2] +
-		   refractionColor * albedo[3];
+		   reflectionColor * albedo[2] + refractionColor * albedo[3];
 }
 
 /// @brief Outputs image to the file
