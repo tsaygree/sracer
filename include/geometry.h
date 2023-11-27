@@ -86,7 +86,7 @@ struct vec<3, T>
 		assert(i < 3);
 		return i <= 0 ? x : (1 == i ? y : z);
 	}
-	float norm() { return std::sqrt(x * x + y * y + z * z); }
+	float norm() const { return std::sqrt(x * x + y * y + z * z); }
 	vec<3, T>& normalize(T l = 1)
 	{
 		*this = (*this) * (l / norm());
