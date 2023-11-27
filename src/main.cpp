@@ -164,18 +164,63 @@ protected:
 	bool intersected;
 };
 
-struct Sphere
+class Shape
 {
+public:
+	/// @brief Default constructor
+	Shape() = default;
+
+	/// @brief Default destructor
+	virtual ~Shape() = default;
+
+	/// @brief Copy constructor
+	Shape(const Shape&) = delete;
+
+	/// @brief Move constructor
+	Shape(Shape&&) = delete;
+
+	/// @brief Copy assignment
+	Shape& operator=(const Shape&) = delete;
+
+	/// @brief Move assignment
+	Shape& operator=(Shape&&) = delete;
+
+	/// @brief Checks if ray intersects with a shape
+	/// @param rayOrigin origin of the ray
+	/// @param rayDirection direction of the ray. Must be normalized
+	/// @return intersection info
+	virtual IntersectionInfo checkRayIntersection(const Vec3f& rayOrigin, const Vec3f& rayDirection) const = 0;
+
+	/// @brief Material getter
+	const Material& getMaterial() const
+	{
+		return material;
+	}
+
+protected:
+	/// @brief Material of the shape
+	Material material;
+};
+
+class Sphere : public Shape
+{
+public:
+	/// @brief Default constructor
+	Sphere() = delete;
+
+	/// @brief Default destructor
+	virtual ~Sphere() = default;
+
 	/// @brief Constructor
 	Sphere(const Vec3f& inCenter, float inRadius, const Material& inMaterial)
 		: center(inCenter)
 		, radius(inRadius)
-		, material(inMaterial)
 	{
+		material = inMaterial;
 	}
 
-	/// @brief Check if ray intersects with a sphere. Uses geometric solution.
-	IntersectionInfo isIntersect(const Vec3f& rayOrigin, const Vec3f& rayDirection) const
+	/// @brief Intersection check override. Uses geometric solution
+	virtual IntersectionInfo checkRayIntersection(const Vec3f& rayOrigin, const Vec3f& rayDirection) const override
 	{
 		const Vec3f originToSphereCenter = center - rayOrigin;
 		const float originToSphereProjectionOnRay = originToSphereCenter * rayDirection;
@@ -207,14 +252,24 @@ struct Sphere
 		return {hitLocation, hitNormal, material, hitDistance >= 0};
 	}
 
+	/// @brief Sphere center getter
+	const Vec3f& getCenter() const
+	{
+		return center;
+	}
+
+	/// @brief Radius getter
+	float getRadius() const
+	{
+		return radius;
+	}
+
+protected:
 	/// @brief Center of the sphere in world space
 	Vec3f center;
 
 	/// @brief Radius of the sphere
 	float radius;
-
-	/// @brief Material of the sphere
-	Material material;
 };
 
 /// @brief Calculates reflection vector
@@ -269,44 +324,43 @@ Vec3f refract(const Vec3f& lightDirection, const Vec3f& normal, float refractive
 /// @brief Checks if ray intersects with any of the spheres in the scene
 /// @param rayOrigin ray origin
 /// @param rayDirection ray direction
-/// @param spheres spheres in the scene
+/// @param shapes shapes in the scene
 /// @return Intersection info
-IntersectionInfo isSceneIntersect(const Vec3f& rayOrigin, const Vec3f& rayDirection, const std::vector<Sphere>& spheres)
+IntersectionInfo checkSceneIntersection(const Vec3f& rayOrigin, const Vec3f& rayDirection, const std::vector<Shape*>& shapes)
 {
-	float sphereMinDistance = std::numeric_limits<float>::max();
+	float shapeMinHitDistance = std::numeric_limits<float>::max();
 	Vec3f hitLocation;
 	Vec3f hitNormal;
 	Material hitMaterial;
-	for (size_t sphereNumber = 0; sphereNumber < spheres.size(); ++sphereNumber)
+	for (const auto shape : shapes)
 	{
-		const auto& sphere = spheres[sphereNumber];
-		const auto intersectionInfo = sphere.isIntersect(rayOrigin, rayDirection);
+		const auto intersectionInfo = shape->checkRayIntersection(rayOrigin, rayDirection);
 		const float hitDistance = intersectionInfo.getHitLocation().norm();
-		if (intersectionInfo.isIntersected() && hitDistance < sphereMinDistance)
+		if (intersectionInfo.isIntersected() && hitDistance < shapeMinHitDistance)
 		{
-			sphereMinDistance = hitDistance;
+			shapeMinHitDistance = hitDistance;
 			hitLocation = intersectionInfo.getHitLocation();
 			hitNormal = intersectionInfo.getHitNormal();
 			hitMaterial = intersectionInfo.getHitMaterial();
 		}
 	}
 
-	return {hitLocation, hitNormal, hitMaterial, sphereMinDistance < 1000.f};
+	return {hitLocation, hitNormal, hitMaterial, shapeMinHitDistance < std::numeric_limits<float>::max()};
 }
 
 /// @brief Cast ray into the scene and calculate result pixel color
 /// @param rayOrigin ray origin
 /// @param rayDirection ray direction
-/// @param spheres spheres in the scene
+/// @param shapes shapes in the scene
 /// @param lights lights in the scene
 /// @param depth reflection depth
 /// @return result pixel color
 Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
-	const std::vector<Sphere>& spheres, const std::vector<Light>& lights, size_t depth = 0)
+	const std::vector<Shape*>& shapes, const std::vector<Light>& lights, size_t depth = 0)
 {
 	constexpr size_t maxDepth = 4;
 
-	const auto intersectionInfo = isSceneIntersect(rayOrigin, rayDirection, spheres);
+	const auto intersectionInfo = checkSceneIntersection(rayOrigin, rayDirection, shapes);
 	if (depth > maxDepth || intersectionInfo.isIntersected() == false)
 	{
 		return Vec3f(0.24f, 0.24f, 0.24f);
@@ -318,11 +372,11 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 
 	Vec3f reflectionDirection = reflect(rayDirection, hitNormal);
 	Vec3f reflectionOrigin = reflectionDirection * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
-	Vec3f reflectionColor = castRay(reflectionOrigin, reflectionDirection, spheres, lights, depth + 1);
+	Vec3f reflectionColor = castRay(reflectionOrigin, reflectionDirection, shapes, lights, depth + 1);
 
 	Vec3f refractionDireciton = refract(rayDirection, hitNormal, hitMaterial.getRefractiveIndex()).normalize();
 	Vec3f refractionOrigin = refractionDireciton * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
-	Vec3f refractionColor = castRay(refractionOrigin, refractionDireciton, spheres, lights, depth + 1);
+	Vec3f refractionColor = castRay(refractionOrigin, refractionDireciton, shapes, lights, depth + 1);
 
 	float diffuseLightIntensity = 0;
 	float specularLightIntensity = 0;
@@ -336,7 +390,7 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 		Vec3f surfacePointOrigin =
 			lightDirection * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
 
-		const auto obstacleIntersection = isSceneIntersect(surfacePointOrigin, lightDirection, spheres);
+		const auto obstacleIntersection = checkSceneIntersection(surfacePointOrigin, lightDirection, shapes);
 		if (obstacleIntersection.isIntersected())
 		{
 			const auto& lightObstacleHitLocation = obstacleIntersection.getHitLocation();
@@ -363,9 +417,9 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 }
 
 /// @brief Outputs image to the file
-/// @param spheres spheres in the scene
+/// @param shapes shapes in the scene
 /// @param lights lights in the scene
-void render(const std::vector<Sphere>& spheres, const std::vector<Light>& lights)
+void render(const std::vector<Shape*>& shapes, const std::vector<Light>& lights)
 {
 	constexpr int width = 1920;
 	constexpr int height = 1080;
@@ -391,7 +445,7 @@ void render(const std::vector<Sphere>& spheres, const std::vector<Light>& lights
 
 			const Vec3f rayDirection = Vec3f(rayDirectionX, rayDirectionY, -1.f).normalize();
 
-			framebuffer[col + row * width] = castRay(rayOrigin, rayDirection, spheres, lights);
+			framebuffer[col + row * width] = castRay(rayOrigin, rayDirection, shapes, lights);
 		}
 	}
 
@@ -427,33 +481,33 @@ int main()
 	Material mirror(1.f, Vec4f(0.f, 10.f, 0.8f, 0.f), Vec3f(1.f, 1.f, 1.f), 1425.f);
 	Material glass(100.f, Vec4f(0.f, 0.5f, 0.1f, 0.8f), Vec3f(0.6f, 0.7f, 0.8f), 125.f);
 
-	std::vector<Sphere> spheres;
-	// first row
-	spheres.push_back(Sphere(Vec3f(-15.f, 10.f, -30.f), 4.f, mirror));
-	spheres.push_back(Sphere(Vec3f(-5.f, 10.f, -30.f), 4.f, redRubber));
-	spheres.push_back(Sphere(Vec3f(5.f, 10.f, -30.f), 4.f, redRubber));
-	spheres.push_back(Sphere(Vec3f(15.f, 10.f, -30.f), 4.f, mirror));
-
-	// second row
-	spheres.push_back(Sphere(Vec3f(-15.f, 0.f, -30.f), 4.f, ivory));
-	spheres.push_back(Sphere(Vec3f(-5.f, 0.f, -30.f), 4.f, glass));
-	spheres.push_back(Sphere(Vec3f(5.f, 0.f, -30.f), 4.f, glass));
-	spheres.push_back(Sphere(Vec3f(15.f, 0.f, -30.f), 4.f, ivory));
-
-	// third row
-	spheres.push_back(Sphere(Vec3f(-15.f, -10.f, -30.f), 4.f, mirror));
-	spheres.push_back(Sphere(Vec3f(-5.f, -10.f, -30.f), 4.f, redRubber));
-	spheres.push_back(Sphere(Vec3f(5.f, -10.f, -30.f), 4.f, redRubber));
-	spheres.push_back(Sphere(Vec3f(15.f, -10.f, -30.f), 4.f, mirror));
-
-	spheres.push_back(Sphere(Vec3f(0.f, 0.f, -60.f), 12.f, deepBlue));
+	std::vector<Shape*> shapes{
+		new Sphere(Vec3f(-15.f, 10.f, -30.f), 4.f, mirror),
+		new Sphere(Vec3f(-5.f, 10.f, -30.f), 4.f, redRubber),
+		new Sphere(Vec3f(5.f, 10.f, -30.f), 4.f, redRubber),
+		new Sphere(Vec3f(15.f, 10.f, -30.f), 4.f, mirror),
+		new Sphere(Vec3f(-15.f, 0.f, -30.f), 4.f, ivory),
+		new Sphere(Vec3f(-5.f, 0.f, -30.f), 4.f, glass),
+		new Sphere(Vec3f(5.f, 0.f, -30.f), 4.f, glass),
+		new Sphere(Vec3f(15.f, 0.f, -30.f), 4.f, ivory),
+		new Sphere(Vec3f(-15.f, -10.f, -30.f), 4.f, mirror),
+		new Sphere(Vec3f(-5.f, -10.f, -30.f), 4.f, redRubber),
+		new Sphere(Vec3f(5.f, -10.f, -30.f), 4.f, redRubber),
+		new Sphere(Vec3f(15.f, -10.f, -30.f), 4.f, mirror),
+		new Sphere(Vec3f(0.f, 0.f, -60.f), 12.f, deepBlue)};
 
 	std::vector<Light> lights;
 	lights.push_back(Light(Vec3f(-50.f, 50.f, 20.f), 2.f));
 	lights.push_back(Light(Vec3f(22.f, -50.f, 0.f), 0.8f));
 	lights.push_back(Light(Vec3f(-15.f, -15.f, -100.f), 0.8f));
 
-	render(spheres, lights);
+	render(shapes, lights);
+
+	for (const auto shape : shapes)
+	{
+		delete shape;
+	}
+	shapes.clear();
 
 	return 0;
 }
