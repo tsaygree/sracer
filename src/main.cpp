@@ -272,6 +272,121 @@ protected:
 	float radius;
 };
 
+class Plane : public Shape
+{
+public:
+	/// @brief Default constructor
+	Plane() = default;
+
+	/// @brief Default destructor
+	virtual ~Plane() = default;
+
+	/// @brief Constructor
+	Plane(const Vec3f& inNormalOrigin, const Vec3f& inNormal, const Material& inMaterial)
+		: normalOrigin(inNormalOrigin)
+		, normal(inNormal)
+	{
+		material = inMaterial;
+	}
+
+	/// @brief Intersection check override
+	virtual IntersectionInfo checkRayIntersection(const Vec3f& rayOrigin, const Vec3f& rayDirection) const override
+	{
+		float planeNormalDotRayDirection = std::fabs(normal * rayDirection);
+		if (planeNormalDotRayDirection <= 1e-3)
+		{
+			// ray is parallel to the plane => no intersection
+			return false;
+		}
+
+		// hit distance can be calculated by combining plane equation and ray equation
+		// plane equation: (planeHitLocation - normalOrigin) * normal = 0
+		// ray equation (planeHitLocation equation) can be written as:
+		// rayOrigin + rayDirection * hitDistance = planeHitLocation
+		// thus:
+		const float hitDistance = (normalOrigin - rayOrigin) * normal / (rayDirection * normal);
+
+		const Vec3f hitLocation = rayOrigin + rayDirection * hitDistance;
+		return {hitLocation, normal, material, hitDistance >= 0};
+	}
+
+	/// @brief Origin of the normal getter
+	const Vec3f& getNormalOrigin() const
+	{
+		return normalOrigin;
+	}
+
+	/// @brief Normal getter
+	const Vec3f& getNormal() const
+	{
+		return normal;
+	}
+
+protected:
+	/// @brief Plane surface normal origin
+	Vec3f normalOrigin;
+
+	/// @brief Plane surface normal
+	Vec3f normal;
+};
+
+class Rectangle : public Plane
+{
+public:
+	/// @brief Default constructor
+	Rectangle() = delete;
+
+	/// @brief Default destructor
+	virtual ~Rectangle() = default;
+
+	/// @brief Constructor
+	Rectangle(const Vec3f& inOrigin,
+		const Vec3f& inFirstEdge, float inFirstEdgeLength,
+		const Vec3f& inSecondEdge, float inSecondEdgeLength,
+		const Material& inMaterial)
+		: firstEdge(inFirstEdge)
+		, firstEdgeLength(inFirstEdgeLength)
+		, secondEdge(inSecondEdge)
+		, secondEdgeLength(inSecondEdgeLength)
+	{
+		material = inMaterial;
+		normal = cross(inFirstEdge, inSecondEdge).normalize();
+		normalOrigin = inOrigin;
+	}
+
+	/// @brief Intersection check override
+	virtual IntersectionInfo checkRayIntersection(const Vec3f& rayOrigin, const Vec3f& rayDirection) const override
+	{
+		const auto intersectionInfo = Plane::checkRayIntersection(rayOrigin, rayDirection);
+		if (intersectionInfo.isIntersected() == false)
+		{
+			return intersectionInfo;
+		}
+
+		const Vec3f rectangleOriginToHit = intersectionInfo.getHitLocation() - normalOrigin;
+		const float firstEdgeProjection = rectangleOriginToHit * firstEdge;
+		const float secondEdgeProjection = rectangleOriginToHit * secondEdge;
+
+		const bool isHitInsideRectangle = firstEdgeProjection >= 0 && firstEdgeProjection <= firstEdgeLength &&
+										  secondEdgeProjection >= 0 && secondEdgeProjection <= secondEdgeLength;
+
+		return {intersectionInfo.getHitLocation(), intersectionInfo.getHitNormal(), material, isHitInsideRectangle};
+	}
+
+protected:
+	/// @brief Rectangle first edge direction
+	Vec3f firstEdge;
+
+	/// @brief Rectangle first edge length
+	float firstEdgeLength;
+
+	/// @brief Rectangle second edge direction
+	Vec3f secondEdge;
+
+	/// @brief Rectangle second edge length
+	float secondEdgeLength;
+};
+
 /// @brief Calculates reflection vector
 /// @param lightDirection light direction
 /// @param normal surface normal
@@ -494,7 +609,11 @@ int main()
 		new Sphere(Vec3f(-5.f, -10.f, -30.f), 4.f, redRubber),
 		new Sphere(Vec3f(5.f, -10.f, -30.f), 4.f, redRubber),
 		new Sphere(Vec3f(15.f, -10.f, -30.f), 4.f, mirror),
-		new Sphere(Vec3f(0.f, 0.f, -60.f), 12.f, deepBlue)};
+		new Sphere(Vec3f(0.f, 0.f, -60.f), 12.f, deepBlue),
+		new Rectangle(Vec3f(0.f, -25.f, -70.f),
+			Vec3f(1.f, 0.f, 0.65f).normalize(), 60.f,
+			Vec3f(0.f, 1.f, 0.f).normalize(), 50.f,
+			mirror)};
 
 	std::vector<Light*> lights{
 		new Light(Vec3f(-50.f, 50.f, 20.f), 2.f),
