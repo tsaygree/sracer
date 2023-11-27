@@ -356,7 +356,7 @@ IntersectionInfo checkSceneIntersection(const Vec3f& rayOrigin, const Vec3f& ray
 /// @param depth reflection depth
 /// @return result pixel color
 Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
-	const std::vector<Shape*>& shapes, const std::vector<Light>& lights, size_t depth = 0)
+	const std::vector<Shape*>& shapes, const std::vector<Light*>& lights, size_t depth = 0)
 {
 	constexpr size_t maxDepth = 4;
 
@@ -384,8 +384,8 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 	{
 
 		const auto& light = lights[lightNumber];
-		Vec3f lightDirection = (light.getPosition() - hitLocation).normalize();
-		float ligthDistance = (light.getPosition() - hitLocation).norm();
+		Vec3f lightDirection = (light->getPosition() - hitLocation).normalize();
+		float ligthDistance = (light->getPosition() - hitLocation).norm();
 
 		Vec3f surfacePointOrigin =
 			lightDirection * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
@@ -403,9 +403,9 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 
 		const float diffuseLigthStrength = lightDirection * hitNormal;
 
-		diffuseLightIntensity += light.getIntensity() * std::max(0.f, diffuseLigthStrength);
+		diffuseLightIntensity += light->getIntensity() * std::max(0.f, diffuseLigthStrength);
 		specularLightIntensity +=
-			powf(std::max(0.f, reflect(lightDirection, hitNormal) * rayDirection), hitMaterial.getSpecularExponent()) * light.getIntensity();
+			powf(std::max(0.f, reflect(lightDirection, hitNormal) * rayDirection), hitMaterial.getSpecularExponent()) * light->getIntensity();
 	}
 
 	const auto& albedo = hitMaterial.getAlbedo();
@@ -419,7 +419,7 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 /// @brief Outputs image to the file
 /// @param shapes shapes in the scene
 /// @param lights lights in the scene
-void render(const std::vector<Shape*>& shapes, const std::vector<Light>& lights)
+void render(const std::vector<Shape*>& shapes, const std::vector<Light*>& lights)
 {
 	constexpr int width = 1920;
 	constexpr int height = 1080;
@@ -496,10 +496,10 @@ int main()
 		new Sphere(Vec3f(15.f, -10.f, -30.f), 4.f, mirror),
 		new Sphere(Vec3f(0.f, 0.f, -60.f), 12.f, deepBlue)};
 
-	std::vector<Light> lights;
-	lights.push_back(Light(Vec3f(-50.f, 50.f, 20.f), 2.f));
-	lights.push_back(Light(Vec3f(22.f, -50.f, 0.f), 0.8f));
-	lights.push_back(Light(Vec3f(-15.f, -15.f, -100.f), 0.8f));
+	std::vector<Light*> lights{
+		new Light(Vec3f(-50.f, 50.f, 20.f), 2.f),
+		new Light(Vec3f(22.f, -50.f, 0.f), 0.8f),
+		new Light(Vec3f(-15.f, -15.f, -100.f), 0.8f)};
 
 	render(shapes, lights);
 
@@ -508,6 +508,12 @@ int main()
 		delete shape;
 	}
 	shapes.clear();
+
+	for (const auto light : lights)
+	{
+		delete light;
+	}
+	lights.clear();
 
 	return 0;
 }
