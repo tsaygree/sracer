@@ -41,16 +41,14 @@ protected:
 	float intensity;
 };
 
-struct Material
+class Material
 {
+public:
 	/// @brief Constructor
-	Material()
-		: refractiveIndex(1.f)
-		, albedo(1.f, 0.f, 0.f, 0.f)
-		, diffuseColor()
-		, specularExponent()
-	{
-	}
+	Material() = default;
+
+	/// @brief Default destructor
+	~Material() = default;
 
 	/// @brief Parametrized constructor
 	Material(float inRefractiveIndex, const Vec4f& inAlbedo, const Vec3f& inDiffuseColor, float inSpecularExponent)
@@ -61,6 +59,31 @@ struct Material
 	{
 	}
 
+	/// @brief refractiveIndex getter
+	float getRefractiveIndex() const
+	{
+		return refractiveIndex;
+	}
+
+	/// @brief Albedo getter
+	const Vec4f& getAlbedo() const
+	{
+		return albedo;
+	}
+
+	/// @brief diffusiveColor getter
+	const Vec3f& getDiffuseColor() const
+	{
+		return diffuseColor;
+	}
+
+	/// @brief specularExponent getter
+	float getSpecularExponent() const
+	{
+		return specularExponent;
+	}
+
+protected:
 	/// @brief Refractive index of the material
 	float refractiveIndex;
 
@@ -232,7 +255,7 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 	Vec3f reflectionOrigin = reflectionDirection * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
 	Vec3f reflectionColor = castRay(reflectionOrigin, reflectionDirection, spheres, lights, depth + 1);
 
-	Vec3f refractionDireciton = refract(rayDirection, hitNormal, material.refractiveIndex).normalize();
+	Vec3f refractionDireciton = refract(rayDirection, hitNormal, material.getRefractiveIndex()).normalize();
 	Vec3f refractionOrigin = refractionDireciton * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
 	Vec3f refractionColor = castRay(refractionOrigin, refractionDireciton, spheres, lights, depth + 1);
 
@@ -264,13 +287,15 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 
 		diffuseLightIntensity += light.getIntensity() * std::max(0.f, diffuseLigthStrength);
 		specularLightIntensity +=
-			powf(std::max(0.f, reflect(lightDirection, hitNormal) * rayDirection), material.specularExponent) * light.getIntensity();
+			powf(std::max(0.f, reflect(lightDirection, hitNormal) * rayDirection), material.getSpecularExponent()) * light.getIntensity();
 	}
 
-	return material.diffuseColor * diffuseLightIntensity * material.albedo[0] +
-		   Vec3f(1.f, 1.f, 1.f) * specularLightIntensity * material.albedo[1] +
-		   reflectionColor * material.albedo[2] +
-		   refractionColor * material.albedo[3];
+	const auto& albedo = material.getAlbedo();
+
+	return material.getDiffuseColor() * diffuseLightIntensity * albedo[0] +
+		   Vec3f(1.f, 1.f, 1.f) * specularLightIntensity * albedo[1] +
+		   reflectionColor * albedo[2] +
+		   refractionColor * albedo[3];
 }
 
 /// @brief Outputs image to the file
