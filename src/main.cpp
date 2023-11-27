@@ -5,8 +5,15 @@
 #include <iostream>
 #include <vector>
 
-struct Light
+class Light
 {
+public:
+	/// @brief Default constructor
+	Light() = delete;
+
+	/// @brief Default constructor
+	~Light() = default;
+
 	/// @brief Constructor
 	Light(const Vec3f& inPosition, const float& inIntencity)
 		: position(inPosition)
@@ -14,6 +21,19 @@ struct Light
 	{
 	}
 
+	/// @brief Position getter
+	const Vec3f& getPosition() const
+	{
+		return position;
+	}
+
+	/// @brief Intensity getter
+	float getIntensity() const
+	{
+		return intensity;
+	}
+
+protected:
 	/// @brief Position of the light
 	Vec3f position;
 
@@ -222,8 +242,8 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 	{
 
 		const auto& light = lights[lightNumber];
-		Vec3f lightDirection = (light.position - hitLocation).normalize();
-		float ligthDistance = (light.position - hitLocation).norm();
+		Vec3f lightDirection = (light.getPosition() - hitLocation).normalize();
+		float ligthDistance = (light.getPosition() - hitLocation).norm();
 
 		Vec3f surfacePointOrigin =
 			lightDirection * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
@@ -242,9 +262,9 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 
 		const float diffuseLigthStrength = lightDirection * hitNormal;
 
-		diffuseLightIntensity += light.intensity * std::max(0.f, diffuseLigthStrength);
+		diffuseLightIntensity += light.getIntensity() * std::max(0.f, diffuseLigthStrength);
 		specularLightIntensity +=
-			powf(std::max(0.f, reflect(lightDirection, hitNormal) * rayDirection), material.specularExponent) * light.intensity;
+			powf(std::max(0.f, reflect(lightDirection, hitNormal) * rayDirection), material.specularExponent) * light.getIntensity();
 	}
 
 	return material.diffuseColor * diffuseLightIntensity * material.albedo[0] +
