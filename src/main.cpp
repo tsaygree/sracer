@@ -102,6 +102,68 @@ protected:
 	float specularExponent;
 };
 
+class IntersectionInfo
+{
+public:
+	/// @brief Default constructor
+	IntersectionInfo() = default;
+
+	/// @brief Default destructor
+	~IntersectionInfo() = default;
+
+	/// @brief Constructor
+	IntersectionInfo(bool inIntersected)
+		: intersected(inIntersected)
+	{
+	}
+
+	/// @brief Constructor
+	IntersectionInfo(const Vec3f& inHitLocation, const Vec3f& inHitNormal, const Material& inHitMaterial, bool inIntersected)
+		: hitLocation(inHitLocation)
+		, hitNormal(inHitNormal)
+		, intersected(inIntersected)
+		, hitMaterial(inHitMaterial)
+	{
+	}
+
+	/// @brief Hit location getter
+	const Vec3f& getHitLocation() const
+	{
+		return hitLocation;
+	}
+
+	/// @brief Hit normal getter
+	const Vec3f& getHitNormal() const
+	{
+		return hitNormal;
+	}
+
+	/// @brief Hit material getter
+	const Material& getHitMaterial() const
+	{
+		return hitMaterial;
+	}
+
+	/// @brief Intersection flag getter
+	bool isIntersected() const
+	{
+		return intersected;
+	}
+
+protected:
+	/// @brief Intersection location
+	Vec3f hitLocation;
+
+	/// @brief Intersection normal
+	Vec3f hitNormal;
+
+	/// @brief Material of the hit object
+	Material hitMaterial;
+
+	/// @brief Intersection flag
+	bool intersected;
+};
+
 struct Sphere
 {
 	/// @brief Constructor
@@ -113,7 +175,7 @@ struct Sphere
 	}
 
 	/// @brief Check if ray intersects with a sphere. Uses geometric solution.
-	bool isIntersect(const Vec3f& rayOrigin, const Vec3f& rayDirection, float& hitDistance) const
+	IntersectionInfo isIntersect(const Vec3f& rayOrigin, const Vec3f& rayDirection) const
 	{
 		const Vec3f originToSphereCenter = center - rayOrigin;
 		const float originToSphereProjectionOnRay = originToSphereCenter * rayDirection;
@@ -132,14 +194,17 @@ struct Sphere
 
 		const float hitPointDistanceDiff = sqrtf(radius * radius - sphereCenterToRayDistanceSquared);
 
-		hitDistance = originToSphereProjectionOnRay - hitPointDistanceDiff;
+		float hitDistance = originToSphereProjectionOnRay - hitPointDistanceDiff;
 
 		if (hitDistance < 0)
 		{
 			hitDistance = originToSphereProjectionOnRay + hitPointDistanceDiff;
 		}
 
-		return hitDistance >= 0;
+		const Vec3f hitLocation = rayOrigin + rayDirection * hitDistance;
+		const Vec3f hitNormal = (hitLocation - center).normalize();
+
+		return {hitLocation, hitNormal, material, hitDistance >= 0};
 	}
 
 	/// @brief Center of the sphere in world space
@@ -205,29 +270,28 @@ Vec3f refract(const Vec3f& lightDirection, const Vec3f& normal, float refractive
 /// @param rayOrigin ray origin
 /// @param rayDirection ray direction
 /// @param spheres spheres in the scene
-/// @param hitLocation result hit location
-/// @param hitNormal result hit normal
-/// @param material result material
-bool isSceneIntersect(
-	const Vec3f& rayOrigin, const Vec3f& rayDirection,
-	const std::vector<Sphere>& spheres, Vec3f& hitLocation,
-	Vec3f& hitNormal, Material& material)
+/// @return Intersection info
+IntersectionInfo isSceneIntersect(const Vec3f& rayOrigin, const Vec3f& rayDirection, const std::vector<Sphere>& spheres)
 {
 	float sphereMinDistance = std::numeric_limits<float>::max();
+	Vec3f hitLocation;
+	Vec3f hitNormal;
+	Material hitMaterial;
 	for (size_t sphereNumber = 0; sphereNumber < spheres.size(); ++sphereNumber)
 	{
 		const auto& sphere = spheres[sphereNumber];
-		float hitDistance;
-		if (sphere.isIntersect(rayOrigin, rayDirection, hitDistance) && hitDistance < sphereMinDistance)
+		const auto intersectionInfo = sphere.isIntersect(rayOrigin, rayDirection);
+		const float hitDistance = intersectionInfo.getHitLocation().norm();
+		if (intersectionInfo.isIntersected() && hitDistance < sphereMinDistance)
 		{
 			sphereMinDistance = hitDistance;
-			hitLocation = rayOrigin + rayDirection * hitDistance;
-			hitNormal = (hitLocation - sphere.center).normalize();
-			material = sphere.material;
+			hitLocation = intersectionInfo.getHitLocation();
+			hitNormal = intersectionInfo.getHitNormal();
+			hitMaterial = intersectionInfo.getHitMaterial();
 		}
 	}
 
-	return sphereMinDistance < 1000;
+	return {hitLocation, hitNormal, hitMaterial, sphereMinDistance < 1000.f};
 }
 
 /// @brief Cast ray into the scene and calculate result pixel color
@@ -238,24 +302,25 @@ bool isSceneIntersect(
 /// @param depth reflection depth
 /// @return result pixel color
 Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
-	const std::vector<Sphere>& spheres, const std::vector<Light>& lights,
-	size_t depth = 0)
+	const std::vector<Sphere>& spheres, const std::vector<Light>& lights, size_t depth = 0)
 {
 	constexpr size_t maxDepth = 4;
-	Vec3f hitLocation;
-	Vec3f hitNormal;
-	Material material;
 
-	if (depth > maxDepth || isSceneIntersect(rayOrigin, rayDirection, spheres, hitLocation, hitNormal, material) == false)
+	const auto intersectionInfo = isSceneIntersect(rayOrigin, rayDirection, spheres);
+	if (depth > maxDepth || intersectionInfo.isIntersected() == false)
 	{
 		return Vec3f(0.24f, 0.24f, 0.24f);
 	}
+
+	const auto& hitLocation = intersectionInfo.getHitLocation();
+	const auto& hitNormal = intersectionInfo.getHitNormal();
+	const auto& hitMaterial = intersectionInfo.getHitMaterial();
 
 	Vec3f reflectionDirection = reflect(rayDirection, hitNormal);
 	Vec3f reflectionOrigin = reflectionDirection * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
 	Vec3f reflectionColor = castRay(reflectionOrigin, reflectionDirection, spheres, lights, depth + 1);
 
-	Vec3f refractionDireciton = refract(rayDirection, hitNormal, material.getRefractiveIndex()).normalize();
+	Vec3f refractionDireciton = refract(rayDirection, hitNormal, hitMaterial.getRefractiveIndex()).normalize();
 	Vec3f refractionOrigin = refractionDireciton * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
 	Vec3f refractionColor = castRay(refractionOrigin, refractionDireciton, spheres, lights, depth + 1);
 
@@ -270,12 +335,11 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 
 		Vec3f surfacePointOrigin =
 			lightDirection * hitNormal < 0 ? hitLocation - hitNormal * 1e-3 : hitLocation + hitNormal * 1e-3;
-		Vec3f lightObstacleHitLocation;
-		Vec3f lightObstacleHitNormal;
-		Material hitMaterial;
-		const bool isSomethingLiesInLigthDirection = isSceneIntersect(surfacePointOrigin, lightDirection, spheres, lightObstacleHitLocation, lightObstacleHitNormal, hitMaterial);
-		if (isSomethingLiesInLigthDirection)
+
+		const auto obstacleIntersection = isSceneIntersect(surfacePointOrigin, lightDirection, spheres);
+		if (obstacleIntersection.isIntersected())
 		{
+			const auto& lightObstacleHitLocation = obstacleIntersection.getHitLocation();
 			const bool isHittedObjectLiesInFrontOfLight = (lightObstacleHitLocation - surfacePointOrigin).norm() < ligthDistance;
 			if (isHittedObjectLiesInFrontOfLight)
 			{
@@ -287,12 +351,12 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 
 		diffuseLightIntensity += light.getIntensity() * std::max(0.f, diffuseLigthStrength);
 		specularLightIntensity +=
-			powf(std::max(0.f, reflect(lightDirection, hitNormal) * rayDirection), material.getSpecularExponent()) * light.getIntensity();
+			powf(std::max(0.f, reflect(lightDirection, hitNormal) * rayDirection), hitMaterial.getSpecularExponent()) * light.getIntensity();
 	}
 
-	const auto& albedo = material.getAlbedo();
+	const auto& albedo = hitMaterial.getAlbedo();
 
-	return material.getDiffuseColor() * diffuseLightIntensity * albedo[0] +
+	return hitMaterial.getDiffuseColor() * diffuseLightIntensity * albedo[0] +
 		   Vec3f(1.f, 1.f, 1.f) * specularLightIntensity * albedo[1] +
 		   reflectionColor * albedo[2] +
 		   refractionColor * albedo[3];
