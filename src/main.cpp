@@ -118,8 +118,9 @@ public:
 	}
 
 	/// @brief Constructor
-	IntersectionInfo(const Vec3f& inHitLocation, const Vec3f& inHitNormal, const Material& inHitMaterial, bool inIntersected)
+	IntersectionInfo(const Vec3f& inHitLocation, float inHitDistance, const Vec3f& inHitNormal, const Material& inHitMaterial, bool inIntersected)
 		: hitLocation(inHitLocation)
+		, hitDistance(inHitDistance)
 		, hitNormal(inHitNormal)
 		, intersected(inIntersected)
 		, hitMaterial(inHitMaterial)
@@ -130,6 +131,12 @@ public:
 	const Vec3f& getHitLocation() const
 	{
 		return hitLocation;
+	}
+
+	/// @brief Hit distance getter
+	float getHitDistance() const
+	{
+		return hitDistance;
 	}
 
 	/// @brief Hit normal getter
@@ -153,6 +160,9 @@ public:
 protected:
 	/// @brief Intersection location
 	Vec3f hitLocation;
+
+	/// @brief Intersection distance
+	float hitDistance;
 
 	/// @brief Intersection normal
 	Vec3f hitNormal;
@@ -249,7 +259,7 @@ public:
 		const Vec3f hitLocation = rayOrigin + rayDirection * hitDistance;
 		const Vec3f hitNormal = (hitLocation - center).normalize();
 
-		return {hitLocation, hitNormal, material, hitDistance >= 0};
+		return {hitLocation, hitDistance, hitNormal, material, hitDistance >= 0};
 	}
 
 	/// @brief Sphere center getter
@@ -307,7 +317,7 @@ public:
 		const float hitDistance = (normalOrigin - rayOrigin) * normal / (rayDirection * normal);
 
 		const Vec3f hitLocation = rayOrigin + rayDirection * hitDistance;
-		return {hitLocation, normal, material, hitDistance >= 0};
+		return {hitLocation, hitDistance, normal, material, hitDistance >= 0};
 	}
 
 	/// @brief Origin of the normal getter
@@ -370,7 +380,7 @@ public:
 		const bool isHitInsideRectangle = firstEdgeProjection >= 0 && firstEdgeProjection <= firstEdgeLength &&
 										  secondEdgeProjection >= 0 && secondEdgeProjection <= secondEdgeLength;
 
-		return {intersectionInfo.getHitLocation(), intersectionInfo.getHitNormal(), material, isHitInsideRectangle};
+		return {intersectionInfo.getHitLocation(), intersectionInfo.getHitDistance(), intersectionInfo.getHitNormal(), material, isHitInsideRectangle};
 	}
 
 protected:
@@ -450,7 +460,7 @@ IntersectionInfo checkSceneIntersection(const Vec3f& rayOrigin, const Vec3f& ray
 	for (const auto shape : shapes)
 	{
 		const auto intersectionInfo = shape->checkRayIntersection(rayOrigin, rayDirection);
-		const float hitDistance = intersectionInfo.getHitLocation().norm();
+		const float hitDistance = intersectionInfo.getHitDistance();
 		if (intersectionInfo.isIntersected() && hitDistance < shapeMinHitDistance)
 		{
 			shapeMinHitDistance = hitDistance;
@@ -460,7 +470,7 @@ IntersectionInfo checkSceneIntersection(const Vec3f& rayOrigin, const Vec3f& ray
 		}
 	}
 
-	return {hitLocation, hitNormal, hitMaterial, shapeMinHitDistance < std::numeric_limits<float>::max()};
+	return {hitLocation, shapeMinHitDistance, hitNormal, hitMaterial, shapeMinHitDistance < std::numeric_limits<float>::max()};
 }
 
 /// @brief Cast ray into the scene and calculate result pixel color
