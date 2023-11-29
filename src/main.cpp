@@ -3,6 +3,7 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 class Light
@@ -451,7 +452,7 @@ Vec3f refract(const Vec3f& lightDirection, const Vec3f& normal, float refractive
 /// @param rayDirection ray direction
 /// @param shapes shapes in the scene
 /// @return Intersection info
-IntersectionInfo checkSceneIntersection(const Vec3f& rayOrigin, const Vec3f& rayDirection, const std::vector<Shape*>& shapes)
+IntersectionInfo checkSceneIntersection(const Vec3f& rayOrigin, const Vec3f& rayDirection, const std::vector<std::shared_ptr<Shape>>& shapes)
 {
 	float shapeMinHitDistance = std::numeric_limits<float>::max();
 	Vec3f hitLocation;
@@ -481,7 +482,7 @@ IntersectionInfo checkSceneIntersection(const Vec3f& rayOrigin, const Vec3f& ray
 /// @param depth reflection depth
 /// @return result pixel color
 Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
-	const std::vector<Shape*>& shapes, const std::vector<Light*>& lights, size_t depth = 0)
+	const std::vector<std::shared_ptr<Shape>>& shapes, const std::vector<std::shared_ptr<Light>>& lights, size_t depth = 0)
 {
 	constexpr size_t maxDepth = 4;
 
@@ -541,7 +542,7 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 /// @brief Outputs image to the file
 /// @param shapes shapes in the scene
 /// @param lights lights in the scene
-void render(const std::vector<Shape*>& shapes, const std::vector<Light*>& lights)
+void render(const std::vector<std::shared_ptr<Shape>>& shapes, const std::vector<std::shared_ptr<Light>>& lights)
 {
 	constexpr int width = 1920;
 	constexpr int height = 1080;
@@ -603,43 +604,34 @@ int main()
 	Material mirror(1.f, Vec4f(0.f, 10.f, 0.8f, 0.f), Vec3f(1.f, 1.f, 1.f), 1425.f);
 	Material glass(100.f, Vec4f(0.f, 0.5f, 0.1f, 0.8f), Vec3f(0.6f, 0.7f, 0.8f), 125.f);
 
-	std::vector<Shape*> shapes{
-		new Sphere(Vec3f(-15.f, 10.f, -30.f), 4.f, mirror),
-		new Sphere(Vec3f(-5.f, 10.f, -30.f), 4.f, redRubber),
-		new Sphere(Vec3f(5.f, 10.f, -30.f), 4.f, redRubber),
-		new Sphere(Vec3f(15.f, 10.f, -30.f), 4.f, mirror),
-		new Sphere(Vec3f(-15.f, 0.f, -30.f), 4.f, ivory),
-		new Sphere(Vec3f(-5.f, 0.f, -30.f), 4.f, glass),
-		new Sphere(Vec3f(5.f, 0.f, -30.f), 4.f, glass),
-		new Sphere(Vec3f(15.f, 0.f, -30.f), 4.f, ivory),
-		new Sphere(Vec3f(-15.f, -10.f, -30.f), 4.f, mirror),
-		new Sphere(Vec3f(-5.f, -10.f, -30.f), 4.f, redRubber),
-		new Sphere(Vec3f(5.f, -10.f, -30.f), 4.f, redRubber),
-		new Sphere(Vec3f(15.f, -10.f, -30.f), 4.f, mirror),
-		new Sphere(Vec3f(0.f, 0.f, -60.f), 12.f, deepBlue),
-		new Rectangle(Vec3f(0.f, -25.f, -70.f),
-			Vec3f(1.f, 0.f, 0.65f).normalize(), 60.f,
-			Vec3f(0.f, 1.f, 0.f).normalize(), 50.f,
-			mirror)};
+	const auto sphere1 = std::make_shared<Sphere>(Vec3f(-15.f, 10.f, -30.f), 4.f, mirror);
+	const auto sphere2 = std::make_shared<Sphere>(Vec3f(-5.f, 10.f, -30.f), 4.f, redRubber);
+	const auto sphere3 = std::make_shared<Sphere>(Vec3f(5.f, 10.f, -30.f), 4.f, redRubber);
+	const auto sphere4 = std::make_shared<Sphere>(Vec3f(15.f, 10.f, -30.f), 4.f, mirror);
+	const auto sphere5 = std::make_shared<Sphere>(Vec3f(-15.f, 0.f, -30.f), 4.f, ivory);
+	const auto sphere6 = std::make_shared<Sphere>(Vec3f(-5.f, 0.f, -30.f), 4.f, glass);
+	const auto sphere7 = std::make_shared<Sphere>(Vec3f(5.f, 0.f, -30.f), 4.f, glass);
+	const auto sphere8 = std::make_shared<Sphere>(Vec3f(15.f, 0.f, -30.f), 4.f, ivory);
+	const auto sphere9 = std::make_shared<Sphere>(Vec3f(-15.f, -10.f, -30.f), 4.f, mirror);
+	const auto sphere10 = std::make_shared<Sphere>(Vec3f(-5.f, -10.f, -30.f), 4.f, redRubber);
+	const auto sphere11 = std::make_shared<Sphere>(Vec3f(5.f, -10.f, -30.f), 4.f, redRubber);
+	const auto sphere12 = std::make_shared<Sphere>(Vec3f(15.f, -10.f, -30.f), 4.f, mirror);
+	const auto sphere13 = std::make_shared<Sphere>(Vec3f(0.f, 0.f, -60.f), 12.f, deepBlue);
+	const auto sphere14 = std::make_shared<Rectangle>(Vec3f(0.f, -25.f, -70.f),
+		Vec3f(1.f, 0.f, 0.65f).normalize(), 60.f,
+		Vec3f(0.f, 1.f, 0.f).normalize(), 50.f,
+		mirror);
 
-	std::vector<Light*> lights{
-		new Light(Vec3f(-50.f, 50.f, 20.f), 2.f),
-		new Light(Vec3f(22.f, -50.f, 0.f), 0.8f),
-		new Light(Vec3f(-15.f, -15.f, -100.f), 0.8f)};
+	std::vector<std::shared_ptr<Shape>> shapes{
+		sphere1, sphere2, sphere3, sphere4, sphere5, sphere6, sphere7,
+		sphere8, sphere9, sphere10, sphere11, sphere12, sphere13, sphere14};
+
+	const auto light1 = std::make_shared<Light>(Vec3f(-50.f, 50.f, 20.f), 2.f);
+	const auto light2 = std::make_shared<Light>(Vec3f(22.f, -50.f, 0.f), 0.8f);
+	const auto light3 = std::make_shared<Light>(Vec3f(-15.f, -15.f, -100.f), 0.8f);
+	std::vector<std::shared_ptr<Light>> lights{light1, light2, light3};
 
 	render(shapes, lights);
-
-	for (const auto shape : shapes)
-	{
-		delete shape;
-	}
-	shapes.clear();
-
-	for (const auto light : lights)
-	{
-		delete light;
-	}
-	lights.clear();
 
 	return 0;
 }
