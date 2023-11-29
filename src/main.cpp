@@ -547,7 +547,7 @@ void render(const std::vector<Shape*>& shapes, const std::vector<Light*>& lights
 	constexpr int height = 1080;
 	constexpr float aspectRatio = width / (float)height;
 	constexpr float screenDistance = 1.f;
-	constexpr int fov = M_PI / 2.f;
+	constexpr float fov = 1.05;
 	const float angleTangent = std::tan(fov / 2.f);
 
 	std::vector<Vec3f> framebuffer(width * height);
