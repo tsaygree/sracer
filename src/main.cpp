@@ -464,7 +464,7 @@ IntersectionInfo checkSceneIntersection(const Vec3f& rayOrigin, const Vec3f& ray
 	Vec3f hitLocation;
 	Vec3f hitNormal;
 	Material hitMaterial;
-	for (const auto shape : shapes)
+	for (const auto& shape : shapes)
 	{
 		const auto intersectionInfo = shape->checkRayIntersection(rayOrigin, rayDirection);
 		const float hitDistance = intersectionInfo.getHitDistance();
@@ -512,7 +512,7 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 
 	float diffuseLightIntensity = 0;
 	float specularLightIntensity = 0;
-	for (const auto light : lights)
+	for (const auto& light : lights)
 	{
 		Vec3f lightDirection = (light->getPosition() - hitLocation).normalize();
 		float ligthDistance = (light->getPosition() - hitLocation).norm();
