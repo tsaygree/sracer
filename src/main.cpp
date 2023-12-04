@@ -129,8 +129,8 @@ public:
 		: hitLocation(inHitLocation)
 		, hitDistance(inHitDistance)
 		, hitNormal(inHitNormal)
-		, intersected(inIntersected)
 		, hitMaterial(inHitMaterial)
+		, intersected(inIntersected)
 	{
 	}
 
