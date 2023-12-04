@@ -620,14 +620,14 @@ int main()
 	const auto sphere11 = std::make_shared<Sphere>(Vec3f(5.f, -10.f, -30.f), 4.f, redRubber);
 	const auto sphere12 = std::make_shared<Sphere>(Vec3f(15.f, -10.f, -30.f), 4.f, mirror);
 	const auto sphere13 = std::make_shared<Sphere>(Vec3f(0.f, 0.f, -60.f), 12.f, deepBlue);
-	const auto sphere14 = std::make_shared<Rectangle>(Vec3f(0.f, -25.f, -70.f),
+	const auto rectangle1 = std::make_shared<Rectangle>(Vec3f(0.f, -25.f, -70.f),
 		Vec3f(1.f, 0.f, 0.65f).normalize(), 60.f,
 		Vec3f(0.f, 1.f, 0.f).normalize(), 50.f,
 		mirror);
 
 	std::vector<std::shared_ptr<Shape>> shapes{
 		sphere1, sphere2, sphere3, sphere4, sphere5, sphere6, sphere7,
-		sphere8, sphere9, sphere10, sphere11, sphere12, sphere13, sphere14};
+		sphere8, sphere9, sphere10, sphere11, sphere12, sphere13, rectangle1};
 
 	const auto light1 = std::make_shared<Light>(Vec3f(-50.f, 50.f, 20.f), 2.f);
 	const auto light2 = std::make_shared<Light>(Vec3f(22.f, -50.f, 0.f), 0.8f);
