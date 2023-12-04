@@ -12,6 +12,89 @@
 #include <memory>
 #include <vector>
 
+class EnvironmentMap
+{
+public:
+	/// @brief Default constructor
+	EnvironmentMap()
+	{
+		width = 0;
+		height = 0;
+		load();
+	}
+
+	/// @brief Copy constructor
+	EnvironmentMap(const EnvironmentMap&) = delete;
+
+	/// @brief Copy assignment
+	EnvironmentMap& operator=(const EnvironmentMap&) = delete;
+
+	/// @brief Environment map getter
+	static std::vector<Vec3f>& getEnvMap()
+	{
+		return getInstance()->envMap;
+	}
+
+	/// @brief Environment map width getter
+	static int getWidth()
+	{
+		return getInstance()->width;
+	}
+
+	/// @brief Environment map height getter
+	static int getHeight()
+	{
+		return getInstance()->height;
+	}
+
+private:
+	/// @brief Singleton instance getter
+	static std::shared_ptr<EnvironmentMap> getInstance()
+	{
+		static std::shared_ptr<EnvironmentMap> instance(std::make_shared<EnvironmentMap>());
+		return instance;
+	}
+
+	/// @brief Loads environment map from the file
+	void load()
+	{
+		constexpr int requredComponents = 3;
+		int components = 0;
+		unsigned char* pixmap = stbi_load("../envmap.jpg", &width, &height, &components, 0);
+		if (!pixmap || components != requredComponents)
+		{
+			std::cerr << "Error: can not load the environment map" << std::endl;
+			return;
+		}
+
+		constexpr size_t channels = 3;
+		envMap.resize(width * height);
+		for (int yPixelCoord = height - 1; yPixelCoord >= 0; yPixelCoord--)
+		{
+			for (int xPixelCoord = 0; xPixelCoord < width; xPixelCoord++)
+			{
+				envMap[xPixelCoord + yPixelCoord * width] =
+					Vec3f(pixmap[(xPixelCoord + yPixelCoord * width) * channels + 0],
+						pixmap[(xPixelCoord + yPixelCoord * width) * channels + 1],
+						pixmap[(xPixelCoord + yPixelCoord * width) * channels + 2]) *
+					(1 / 255.);
+			}
+		}
+
+		stbi_image_free(pixmap);
+	}
+
+private:
+	/// @brief Environment map width
+	int width;
+
+	/// @brief Environment map height
+	int height;
+
+	/// @brief Environment map colors
+	std::vector<Vec3f> envMap;
+};
+
 class Light
 {
 public:
@@ -480,6 +563,18 @@ IntersectionInfo checkSceneIntersection(const Vec3f& rayOrigin, const Vec3f& ray
 	return {hitLocation, shapeMinHitDistance, hitNormal, hitMaterial, shapeMinHitDistance < std::numeric_limits<float>::max()};
 }
 
+/// @brief Gets pixel coordinates in the UV map
+/// @param rayDirection direction of the ray
+/// @param width width of the UV map
+/// @param height height of the UV map
+/// @return pixel coordinates in the UV map [x, y]
+std::pair<int, int> getUVPixelCoordinates(const Vec3f& rayDirection, const int& width, const int& height)
+{
+	const int uPixelCoord = static_cast<int>((0.5 + atan2(rayDirection.z, rayDirection.x) / (2.f * M_PI)) * width);
+	const int vPixelCoord = static_cast<int>((0.5 - asin(rayDirection.y) / M_PI) * height);
+	return {uPixelCoord, vPixelCoord};
+}
+
 /// @brief Cast ray into the scene and calculate result pixel color
 /// @param rayOrigin ray origin
 /// @param rayDirection ray direction
@@ -495,7 +590,9 @@ Vec3f castRay(const Vec3f& rayOrigin, const Vec3f& rayDirection,
 	const auto intersectionInfo = checkSceneIntersection(rayOrigin, rayDirection, shapes);
 	if (depth > maxDepth || intersectionInfo.isIntersected() == false)
 	{
-		return Vec3f(0.24f, 0.24f, 0.24f);
+		// return environment map color
+		const auto [uPixelCoord, vPixelCoord] = getUVPixelCoordinates(rayDirection, EnvironmentMap::getWidth(), EnvironmentMap::getHeight());
+		return EnvironmentMap::getEnvMap()[uPixelCoord + vPixelCoord * EnvironmentMap::getWidth()];
 	}
 
 	const auto& hitLocation = intersectionInfo.getHitLocation();
