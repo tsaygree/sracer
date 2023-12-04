@@ -1,8 +1,14 @@
 #include "geometry.h"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#include <algorithm>
 #include <cmath>
-#include <fstream>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -572,28 +578,25 @@ void render(const std::vector<std::shared_ptr<Shape>>& shapes, const std::vector
 		}
 	}
 
-	std::ofstream ofs;
-	ofs.open("./sracerimage.ppm");
-
-	ofs << "P6\n"
-		<< width << " " << height << "\n255\n";
-
+	constexpr size_t channels = 3;
+	std::vector<unsigned char> pixelMap(width * height * channels);
 	for (size_t pixel = 0; pixel < height * width; ++pixel)
 	{
 		Vec3f& pixelColor = framebuffer[pixel];
-		float max = std::max(pixelColor[0], std::max(pixelColor[1], pixelColor[2]));
+		const float max = std::max(pixelColor[0], std::max(pixelColor[1], pixelColor[2]));
 		if (max > 1)
 		{
 			pixelColor = pixelColor * (1.f / max);
 		}
 
-		for (size_t colorNumber = 0; colorNumber < 3; ++colorNumber)
+		for (size_t channel = 0; channel < channels; ++channel)
 		{
-			ofs << (char)(255 * std::max(0.f, std::min(1.f, framebuffer[pixel][colorNumber])));
+			pixelMap[pixel * channels + channel] =
+				(unsigned char)(255 * std::max(0.f, std::min(1.f, framebuffer[pixel][channel])));
 		}
 	}
 
-	ofs.close();
+	stbi_write_jpg("sracerimage.jpg", width, height, 3, pixelMap.data(), 100);
 }
 
 int main()
