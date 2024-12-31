@@ -568,10 +568,10 @@ IntersectionInfo checkSceneIntersection(const Vec3f& rayOrigin, const Vec3f& ray
 /// @param width width of the UV map
 /// @param height height of the UV map
 /// @return pixel coordinates in the UV map [x, y]
-std::pair<int, int> getUVPixelCoordinates(const Vec3f& rayDirection, const int& width, const int& height)
+std::pair<int64_t, int64_t> getUVPixelCoordinates(const Vec3f& rayDirection, const int& width, const int& height)
 {
-	const int uPixelCoord = static_cast<int>((0.5 + atan2(rayDirection.z, rayDirection.x) / (2.f * M_PI)) * width);
-	const int vPixelCoord = static_cast<int>((0.5 - asin(rayDirection.y) / M_PI) * height);
+	const int64_t uPixelCoord = static_cast<int64_t>((0.5 + atan2(rayDirection.z, rayDirection.x) / (2.f * M_PI)) * width);
+	const int64_t vPixelCoord = static_cast<int64_t>((0.5 - asin(rayDirection.y) / M_PI) * height);
 	return {uPixelCoord, vPixelCoord};
 }
 
