@@ -5,6 +5,13 @@
 #include <iostream>
 #include <vector>
 
+#define FLOAT_SMALL_NUMBER (1.e-8f)
+
+bool isNearlyEqual(float lhs, float rhs, float errorTolerance = FLOAT_SMALL_NUMBER)
+{
+	return abs(lhs - rhs) <= errorTolerance;
+}
+
 template <size_t DIM, typename T>
 struct vec
 {
@@ -89,7 +96,13 @@ struct vec<3, T>
 	float norm() const { return std::sqrt(x * x + y * y + z * z); }
 	vec<3, T>& normalize(T l = 1)
 	{
-		*this = (*this) * (l / norm());
+		const float normResult = norm();
+
+		if (isNearlyEqual(normResult, 0.f) == false)
+		{
+			*this = (*this) * (l / normResult);
+		}
+
 		return *this;
 	}
 	T x, y, z;
