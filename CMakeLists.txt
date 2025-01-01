@@ -24,6 +24,10 @@ enable_cxx_compiler_flag_if_supported("-std=c++17")
 enable_cxx_compiler_flag_if_supported("-O3")
 enable_cxx_compiler_flag_if_supported("-fopenmp")
 
+if (MSVC)
+    add_compile_definitions(_USE_MATH_DEFINES)
+    enable_cxx_compiler_flag_if_supported("/std:c++17")
+ENDIF()
 
 file(GLOB SOURCES
     "${HEADER_DIR}/*.h"
